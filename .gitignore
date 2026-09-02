@@ -3,13 +3,21 @@
 # ============================================
 # 私有數據資料夾 (Private Data)
 # ============================================
-data/
-*.csv
+# 真實銷售資料一律放 data/，內容不進版控（只留空目錄，讓使用者知道要放哪）
+# 注意是 data/* 不是 data/：忽略目錄本身時 git 不會往下走，底下的 ! 例外會失效
+data/*
+!data/.gitkeep
+!data/learnings/
+data/learnings/*
+!data/learnings/.gitkeep
+
+# 擋掉隨手丟在專案根目錄的匯出檔（Excel 匯出不會是本專案要出貨的檔案）
+/*.csv
 *.xlsx
 *.xls
 
-# 僅排除 templates/ 內的範本檔案
-!templates/sales_template.csv
+# 注意：不要改回全域 *.csv。那會連 shared/festivals-tw.csv、templates/sales_template.csv
+# 與 skills/ 底下的 CSV 範本一起吞掉，且 git status 不會顯示，clone 下來才會壞。
 
 # ============================================
 # 環境變數與敏感資訊 (Secrets)

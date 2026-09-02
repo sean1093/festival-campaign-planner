@@ -1,0 +1,11 @@
+{
+  "name": "festival-campaign-planner",
+  "displayName": "節慶行銷戰情室",
+  "version": "2.0.0",
+  "description": "台灣節慶檔期的行銷技能組：發想活動點子、收斂成計畫書、展開落地物料、分析銷售數據、做完覆盤回饋下一次。",
+  "author": {
+    "name": "sean1093",
+    "email": "sean1093@gmail.com"
+  },
+  "license": "MIT"
+}
