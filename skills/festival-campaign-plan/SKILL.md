@@ -9,12 +9,12 @@ description: Use when a marketer needs a festival or holiday campaign plan that 
 
 ## 步驟
 
-1. **前置檢查**：要有 brief（品類、節慶與年份、生意目標、預算量級、主力通路、人力與素材）與選定概念。缺概念先跑 festival-campaign-ideas；有歷史銷售資料先跑 festival-sales-analysis。
+1. **前置檢查**：先讀 `data/brand-profile.md`（沒有就複製範本 `data/brand-profile.example.md`）與 `data/learnings/` 同節慶結論，別重提「被否決過什麼」。要有 brief（品類、節慶與年份、生意目標、預算量級、主力通路、人力與素材）與選定概念；缺概念先跑 festival-campaign-ideas，有數據先跑 festival-sales-analysis。
 
 2. **先跑排程再寫內容**：
-   `python3 ${CLAUDE_PLUGIN_ROOT}/shared/backplan.py <節慶> --year <年> --gantt`
+   `python3 ${CLAUDE_PLUGIN_ROOT}/shared/backplan.py <節慶> --year <年> --gantt --feasibility`
    （此變數未展開時，改用專案根目錄的 `shared/backplan.py`；非表列檔期加 `--date --name --profile`。）
-   **禁止自行推算節慶日期或里程碑日期。** 腳本警告落後 N 天時，明寫要壓縮或砍掉哪些環節、交期與上架截止日是否來得及，不准假裝時間夠。
+   **禁止自行推算節慶日期或里程碑日期。** `--feasibility` 讀 `data/operations.csv`，把交期鏈與通路截止日疊上里程碑，指出哪些方案來不及；缺檔退回一般模式並複製 `data/operations.example.csv`。腳本警告落後 N 天時，明寫要砍掉哪些環節，不准假裝時間夠。
 
 3. **填 `templates/campaign-plan.md`**：八節骨架見範本，執行時程貼上排程表與甘特圖。機制與 KPI 對齊 `${CLAUDE_PLUGIN_ROOT}/shared/category-profiles.md` 的品類段落。
 
@@ -22,7 +22,9 @@ description: Use when a marketer needs a festival or holiday campaign plan that 
 
 5. **標假設**：沒有來源的數字一律寫成 `[假設] <數字> — 依據：<推論> — 需驗證：<怎麼驗>`，並彙整成「待驗證假設清單」。寧可標假設，不准編像真的數字。
 
-6. **交棒**：核准後交 festival-execution-kit 產物料；檔期結束交 festival-campaign-review 覆盤。
+6. **交出前跑健檢**：`python3 shared/audit_plan.py <計畫書.md> --festival <節慶> --year <年>`，違規改完才能送審。硬規定，不是建議。
+
+7. **交棒**：核准後交 festival-execution-kit；結束交 festival-campaign-review。
 
 ## 常見錯誤
 

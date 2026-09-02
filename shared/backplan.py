@@ -12,9 +12,14 @@
     python3 backplan.py 中秋                    # 自動抓下一次中秋
     python3 backplan.py 中秋 --year 2027
     python3 backplan.py 中秋 --gantt            # 輸出 mermaid 甘特圖
+    python3 backplan.py 中秋 --feasibility      # 疊上你的交期與通路截止日，算哪些方案還來得及
     python3 backplan.py --date 2026-11-11 --profile short --name 品牌週年慶
     python3 backplan.py --list --year 2026
     python3 backplan.py --list --category 美妝個護
+
+--feasibility 讀 data/operations.csv（你自己的營運常數，複製 data/operations.example.csv
+來填）。這是這支程式唯一知道「你家」而不只是「一般人」的地方：沒有它，D-60 只是通用
+日曆算術；有了它，才答得出「現在啟動，禮盒版還來不來得及」。
 
 只用標準函式庫，不需安裝任何套件。
 """
@@ -27,6 +32,7 @@ import sys
 
 CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "festivals-tw.csv")
 WEEKDAY = "一二三四五六日"
+OPS_HEADER = ["方案", "項目", "類型", "天數", "通路", "說明"]
 
 # 前置節奏：(節前天數, 階段, 工作項目)
 # 這是排程預設值，不是市場數據。有自家歷史檔期資料就覆寫它。
@@ -162,6 +168,139 @@ def render_list(rows, year, category):
     return "\n".join(out)
 
 
+# --------------------------------------------------------------------------
+# 可行性評估：把使用者自己的交期與通路截止日疊到檔期上
+# --------------------------------------------------------------------------
+
+def find_operations(explicit=None):
+    """找 operations.csv。順序：--operations 指定 → 專案目錄 → 這支程式旁邊的 data/。
+
+    兩種擺法都支援：外掛裝在 ~/.claude/skills/ 底下時營運常數跟著外掛走（一個人服務一個
+    品牌，這樣最自然）；在專案目錄裡工作時則以專案的 data/ 為準。
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [explicit] if explicit else []
+    candidates += [
+        os.path.join(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()), "data", "operations.csv"),
+        os.path.join(here, os.pardir, "data", "operations.csv"),
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            return os.path.abspath(path)
+    return None
+
+
+def load_operations(path):
+    """回傳 (交期 {方案: [(項目, 天數或None, 說明)]}, 截止 [(方案, 項目, 通路, 天數, 說明)])。
+
+    天數填 [待確認] 之類的非整數時保留為 None：不猜、不當成 0，而是在報告裡列出來要求補齊。
+    """
+    chains, deadlines = {}, []
+    with open(path, encoding="utf-8-sig") as fh:
+        for row in csv.DictReader(fh):
+            if not row or (row.get("方案") or "").lstrip().startswith("#"):
+                continue
+            kind = (row.get("類型") or "").strip()
+            plan = (row.get("方案") or "").strip()
+            item = (row.get("項目") or "").strip()
+            note = (row.get("說明") or "").strip()
+            raw = (row.get("天數") or "").strip()
+            days = int(raw) if raw.lstrip("-").isdigit() else None
+            if not item:
+                continue
+            if kind == "交期":
+                chains.setdefault(plan or "（未分方案）", []).append((item, days, note))
+            elif kind == "截止":
+                deadlines.append((plan, item, (row.get("通路") or "").strip(), days, note))
+    return chains, deadlines
+
+
+def render_feasibility(title, dday, ops_path):
+    """輸出方案可行性與通路截止日判定。"""
+    today = dt.date.today()
+    chains, deadlines = load_operations(ops_path)
+    out = ["## %s 可行性評估" % title, "",
+           "- **節慶當日**：%s" % fmt(dday),
+           "- **今天**：%s，剩 %d 天" % (fmt(today), (dday - today).days),
+           "- **營運常數**：`%s`" % ops_path, ""]
+
+    if not chains and not deadlines:
+        out.append("⚠️ 營運常數檔裡沒有任何可用的「交期」或「截止」列，無法評估。")
+        return "\n".join(out)
+
+    if chains:
+        out += ["### 方案可行性", "",
+                "| 方案 | 作業鏈 | 需要天數 | 最快完成 | 對 D-day | 判定 |",
+                "|---|---|---|---|---|---|"]
+        for plan, steps in chains.items():
+            unfilled = [i for i, d, _ in steps if d is None]
+            total = sum(d for _, d, _ in steps if d is not None)
+            chain = " → ".join("%s(%s)" % (i, d if d is not None else "?") for i, d, _ in steps)
+            if unfilled:
+                out.append("| %s | %s | %s | — | — | ⚠️ 無法評估：%d 項天數未填 |"
+                           % (plan, chain, "已填 %d" % total if total else "—",
+                              len(unfilled)))
+                continue
+            finish = today + dt.timedelta(days=total)
+            gap = (dday - finish).days
+            verdict = ("來不及，晚 %d 天" % -gap if gap < 0
+                       else "⚠️ 只剩 %d 天緩衝" % gap if gap <= 7
+                       else "來得及，緩衝 %d 天" % gap)
+            out.append("| %s | %s | %d | %s | %s | %s |"
+                       % (plan, chain, total, finish.isoformat(),
+                          "晚 %d 天" % -gap if gap < 0 else "早 %d 天" % gap, verdict))
+        out.append("")
+        out.append("_作業鏈視為序列相加。有能並行的步驟，請把它們合併成一列再填天數。_")
+        out.append("")
+
+    if deadlines:
+        out += ["### 通路截止日", "",
+                "| 通路 | 項目 | 適用方案 | 截止日 | 狀態 |", "|---|---|---|---|---|"]
+        for plan, item, channel, days, note in deadlines:
+            if days is None:
+                out.append("| %s | %s | %s | ⚠️ 天數未填 | 無法判定（%s）|"
+                           % (channel or "—", item, plan or "全部", note or "去問窗口"))
+                continue
+            when = dday - dt.timedelta(days=days)
+            left = (when - today).days
+            state = ("⚠️ 已於 %d 天前截止" % -left if left < 0
+                     else "⚠️ 今天最後一天" if left == 0
+                     else "剩 %d 天" % left)
+            out.append("| %s | %s | %s | %s 週%s，D-%d | %s |"
+                       % (channel or "—", item, plan or "全部", when.isoformat(),
+                          WEEKDAY[when.weekday()], days, state))
+        out.append("")
+
+    alive, dead, blocked = [], [], []
+    for plan, steps in chains.items():
+        if any(d is None for _, d, _ in steps):
+            blocked.append(plan)
+        elif today + dt.timedelta(days=sum(d for _, d, _ in steps)) <= dday:
+            alive.append(plan)
+        else:
+            dead.append(plan)
+    missed = ["%s%s" % (c + "：" if c else "", i)
+              for _, i, c, d, _ in deadlines if d is not None and dday - dt.timedelta(days=d) < today]
+
+    out += ["### 結論", ""]
+    if alive:
+        out.append("- **還做得到**：%s" % "、".join(alive))
+    elif dead:
+        out.append("- **沒有任何方案趕得上**。剩下的選擇只有砍規格、換檔期，或今年放棄這一檔。")
+    else:
+        out.append("- **還無法判定**。所有方案的天數都還沒填，這不代表來得及，"
+                   "只代表你現在手上沒有足以判斷的資訊。")
+    if dead:
+        out.append("- **已經來不及**：%s。要嘛砍規格，要嘛把檔期往後挪。" % "、".join(dead))
+    if missed:
+        out.append("- **已經錯過的通路窗口**：%s。這幾條線今年不用再想，把資源移到還開著的通路。"
+                   % "、".join(missed))
+    if blocked:
+        out.append("- **算不出來**：%s。天數還沒填，去問到再跑一次——這種事不該用猜的。"
+                   % "、".join(blocked))
+    return "\n".join(out)
+
+
 def main():
     p = argparse.ArgumentParser(description="節慶檔期回推排程器")
     p.add_argument("festival", nargs="?", help="節慶名稱，如 中秋、雙11、母親節")
@@ -172,6 +311,9 @@ def main():
     p.add_argument("--gantt", action="store_true", help="輸出 mermaid 甘特圖")
     p.add_argument("--list", action="store_true", help="列出節慶總表")
     p.add_argument("--category", help="用適配品類篩選，如 食品飲料、美妝個護")
+    p.add_argument("--feasibility", action="store_true",
+                   help="疊上 data/operations.csv 的交期與通路截止日，算哪些方案還來得及")
+    p.add_argument("--operations", help="指定營運常數檔路徑（預設自動尋找 data/operations.csv）")
     a = p.parse_args()
 
     rows = load_festivals()
@@ -197,6 +339,18 @@ def main():
     if a.gantt:
         print()
         print(render_gantt(title, dday, profile))
+    if a.feasibility:
+        ops = find_operations(a.operations)
+        print()
+        if ops:
+            print(render_feasibility(title, dday, ops))
+        else:
+            print("## 可行性評估：無法執行\n\n"
+                  "找不到 `data/operations.csv`。這支評估要知道你自己的交期與通路截止日，"
+                  "否則只能給通用日曆，講不出「禮盒版還來不來得及」。\n\n"
+                  "做法：把 `data/operations.example.csv` 複製成 `data/operations.csv`，"
+                  "用 Excel 打開，把「天數」欄的 `[待確認]` 換成真實天數（問印刷廠業務、"
+                  "通路窗口、平台後台公告），再跑一次。填一次可以用很多年。")
 
 
 if __name__ == "__main__":

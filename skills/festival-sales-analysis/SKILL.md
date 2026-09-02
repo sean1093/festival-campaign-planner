@@ -9,6 +9,8 @@ description: Use when a marketer has sales, POS, or e-commerce export data (CSV 
 
 ## 執行
 
+開跑前先讀 `data/brand-profile.md`（品類、通路、主管在意的指標都在裡面）；沒有就複製 `data/brand-profile.example.md` 填一次，之後每檔都用得到，別停住。
+
 Excel 檔先另存為 CSV（**編碼不用選，Excel 預設的就讀得動**），再跑：
 
 ```bash

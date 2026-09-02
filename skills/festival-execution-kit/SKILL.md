@@ -5,9 +5,11 @@ description: Use when a festival campaign plan is approved and the marketer need
 
 核心原則：計畫書不會自己執行。這個環節把里程碑展開成「誰、在哪一天、交出什麼」，沒有負責人與日期的項目等於不存在。
 
+先讀 `data/brand-profile.md` 取通路窗口與審核天數；沒有就複製 `data/brand-profile.example.md` 填一次。
+
 ## 1. 取日期
 
-跑 `python3 ${CLAUDE_PLUGIN_ROOT}/shared/backplan.py <節慶> --year <年>`（若此變數未展開，改用專案根目錄的 `shared/backplan.py`）。**禁止自行推算節慶日期或回推檔期日。**里程碑遇週六日，內部作業（打樣、通路溝通、驗收）提前到前一個工作日。
+跑 `python3 ${CLAUDE_PLUGIN_ROOT}/shared/backplan.py <節慶> --year <年> --feasibility`（若此變數未展開，改用專案根目錄的 `shared/backplan.py`）。`--feasibility` 讀 `data/operations.csv`，把交期與通路截止日疊上里程碑，指出哪些方案來不及；缺檔退回一般模式並複製 `data/operations.example.csv`。**禁止自行推算節慶日期或回推檔期日。**里程碑遇週六日，內部作業（打樣、通路溝通、驗收）提前到前一個工作日。
 
 ## 2. 四類物件（按需取用）
 

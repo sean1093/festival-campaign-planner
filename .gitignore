@@ -7,6 +7,8 @@
 # 注意是 data/* 不是 data/：忽略目錄本身時 git 不會往下走，底下的 ! 例外會失效
 data/*
 !data/.gitkeep
+# *.example.* 是要出貨的空白範本（使用者複製後改名），必須進版控
+!data/*.example.*
 !data/learnings/
 data/learnings/*
 !data/learnings/.gitkeep

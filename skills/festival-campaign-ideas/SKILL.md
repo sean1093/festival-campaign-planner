@@ -9,6 +9,8 @@ description: Use when a marketer needs campaign concepts or creative ideas for a
 
 ## 流程
 
+**動手前先讀**：`data/brand-profile.md`（沒有就複製 `data/brand-profile.example.md` 填一次，之後每檔都用得到，別停住）與 `data/learnings/` 同節慶的過往結論；對照「被否決過什麼」，不重提被刷掉的點子。
+
 1. **鎖 brief 六格**：生意目標（衝量／拉新／清庫存／守品牌）、節慶與日期、品類、目標受眾、預算級距、硬限制（通路、法規、產能、交期、庫存）。日期查 `${CLAUDE_PLUGIN_ROOT}/shared/festivals-tw.csv`（若此變數未展開，改用專案根目錄的 `shared/...`），天數跑 `python3 shared/backplan.py <節慶> --year <年>`，**禁止自行推算節慶日或回推檔期日**；品類對照 `${CLAUDE_PLUGIN_ROOT}/shared/category-profiles.md`，送禮型分清「掏錢的人」與「收禮的人」。
 2. **選軸發散**：讀 `references/idea-axes.md`，至少跨 4 條軸，每軸 1-2 個，共 6-10 個；同軸變形不算兩個點子。
 3. **概念卡**：概念名稱（一句話講完）／為什麼會買單（一句 insight，非形容詞）／核心機制（引用 `references/mechanic-library.md`）／主打通路／要準備什麼（物料、合作對象、系統）／最大風險。
